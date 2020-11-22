@@ -50,6 +50,7 @@
 \newcommand{\cD}{\mathcal{D}}
 \newcommand{\cN}{\mathcal{N}}
 \newcommand{\reals}{\mathbb{R}}
+\DeclareMathOperator{\argmax}{argmax}
 
 \title{Multimedia Event Coreference}
 
@@ -106,7 +107,7 @@ In our multi--media setting, the event definition is still the same as the defin
 \end{align*}
 
 \section{A generative model for multimedia event coreference}
- Suppose a writer composes an article consisting of a sequence of word ``chunks'' $W = (w^1, \cdots, w^S)$, where $w^s = (w^s_1, \cdots, w^s_{L_s})$, which can be the representations of entity mentions with local context words in the case of entity coreference and event mentions with context words in the case of event coreference. Then a visual editor pairs the article with a sequence of image region-of-interests (ROIs) $R = (r_1, \cdots, r_M)$ which are relevant to the content of the article. To understand the article, a key step of a reader is to understand the coreference relations between the chunks and images. That is, the reader needs to find the sets of word chunks that describe the same event/entity, as encoded by the vector $Y = (y_1,\cdots,y_S)$, where $y_s = t$ means chunk $s$ is coreferent with chunk $t$, a task called \textit{unimodal coreference resolution}, as well as the sets of images that describe the same event/entity, as encoded by the matrix $\bA \in \{0, 1\}^{S \times M}$, where $A_{tm}=1$ means the $t$-th chunk is associated with chunk $m$-th ROI, a task called \textit{crossmodal coreference resolution}.  
+ Suppose a writer composes an article consisting of a sequence of word ``chunks'' $W = (w^1, \cdots, w^S)$, where $w^s = (w^s_1, \cdots, w^s_{L_s})$, which can be the representations of entity mentions with local context words in the case of entity coreference and event mentions with context words in the case of event coreference. Then a visual editor pairs the article with a sequence of image region-of-interests (ROIs) $R = (r_1, \cdots, r_M)$ which are relevant to the content of the article. To understand the article, a key step of a reader is to understand the coreference relations between the chunks and images. That is, the reader needs to find the sets of word chunks that describe the same event/entity, as encoded by the vector $Y = (y_1,\cdots,y_S)$, where $y_s = t$ means chunk $s$ is coreferent with chunk $t$, a task called \textit{unimodal coreference resolution}, as well as the sets of images that describe the same event/entity, as encoded by the matrix $\bA \in \{0, 1\}^{S \times M}$, where $A_{tm}=1$ means the $t$-th chunk is associated with chunk $m$-th ROI, a task called \textit{cross-modal coreference resolution}.  
  
  Further, we adopt the left-linking assumption (\textcolor{red}{CITE}), which asserts that the visual editor detects the coreferent relation of the writer from the start of the article to the end, or mathematically, $y_s \leq t$. The conditional likelihood of the ROIs given the words is then:
  \begin{align}\label{coref-cond-prob}
@@ -120,70 +121,52 @@ The first term of Eq. (\ref{coref-cond-prob}), $P(Y|W)$ can be learned using a t
 where $w_{\leq t} := (w_1, \cdots, w_t)$. 
 
 The second and third terms of Eq. (\ref{eq:coref-cond-prob}) can be learned using a cross-modal alignment model as follows. First, given the coreferent labels $Y$, the model aggregates the representations of chunks of the same event/entity:
-\begin{align}
+\begin{align}\label{eq:sentence-enc}
     \phi_{w, k} = \frac{\sum_{t:y_t=k} w_{t}}{n_k}, 
 \end{align}
-where $n_k = |\{t:y_t=k\}|$.
-
-\section{System Architecture and Approach}
-In the problem of multimodal event coreference, a learner is presented with a set of sentences of the form $S = (w_1, \cdots, w_N)$ and images $I$ with bounding boxes $(B, O) = (b_i, o_i), i=1, \cdots, L$, where $o_j$ is the object class of the bounding box, and the goal of the learner is to identify whether two event mentions $w_i$ and $w_j$ are describing the same event, as described by a binary matrix $Y \in \{0, 1\}^{N \times N} = (y_{ij}), i,j=1,\cdots,N$ so that $y_{ij}=1$ if $w_i$ and $w_j$ are coreferent event mentions and 0 otherwise. If $w_i$ or $w_j$ is not an event, by convention we also have $y_{ij}=0$. Further, we assume $Y$ is block-diagonal up to permutation and can be partitioned into two submatrix $Y_E$ and $Y_T$, where $Y_E$ is the \textit{entity coreference matrix} and $Y_T$ is the \textit{event trigger coreference matrix}. In our basic setting, we assume the entity types, object class and event trigger and argument types to be available in the form of \textit{soft labels}, which are soft conditional probability distribution over classes, though in principle we only requires coreference, object and bounding box labels.
-
-A multimodal coreference resolution system then tries to learn the following conditional probability distribution:
-\begin{multline}\label{eq:likelihood}
-    P(B, O, Y|S, I)\\ 
-    = P(B|I) P(O|B, I, S) P(Y|B, O, I, S)\\
-    = P(B|I) P(O|B, I, S) P(Y_E|B, O, I, S)\\ 
-    P(Y_T|Y_E, B, O, I, S).
-\end{multline}
-Here, $P(B|I)$ is assumed to be learned by a pretrained object detection and classification system and fixed during training. $P(O|B, I, S)$ is the multimodal object class distribution which is to be learnt using the unimodal object class distribution learned by the object detection system, $P(O|B, I)$ and additional information from text. The reason why we decide to learn a multimodal object class is that such labels may provide additional entity information that is beneficial for event coreference, as shown in research of joint entity-event coreference resolution \cite{Lee2012-joint-entity-event-coref}. Further, $P(Y|B, O, I, S)$ is the multimodal coreference resolution system. It is crucial for the multimodal coreference resolution to accept object category information from the object classifiers since having the same object types is a necessary condition for entity coreference; further, having two consistent sets of argument roles and entity types is a necessary condition for event coreference, therefore the event coreference system is conditioned on the coreference and entity type labels of the entity coreference system.    
-
-% Discuss about asynchronous nature of text and image
-Next we discuss the learning mechanisms of different components. To learn the multimodal object classifier, we follow previous works \cite{Zellers2018-neural-motifs} to first contextualize the unimodal class distribution learned by the object detection system based on single bounding box:
-\begin{align}\label{eq:contextualized_object_prob}
-    h_j := h(I, b_j) = \text{BiLSTM}([f_j;W_1 l_j], h_{j-1}),
+where $n_k = |\{t:y_t=k\}|$. Next, the ROIs are fed into a neural network $\phi_v(\cdot)$ to learn a representation of the same dimension as $\phi_{w,k}$'s:
+\begin{align}\label{eq:image-enc}
+    \phi_{v, m} = \phi_v(r_m). 
 \end{align}
-where $l_j := P(o_j|f(I))$ learned by the object detection system and $f_j$ is the visual feature of the bounding box. Similarly, we contextualize the word embeddings of the sentence using a graph convolutional neural network (GCN):
-\begin{align}
-    g_i := g(s, G^{\text{AMR}}) = \text{GCN}(\bw_i, (g_{i'})_{i'\in N^{\text{AMR}}(i)}).
-\end{align}
-As a result, the multimodal object probability becomes:
-\begin{align}
-    P(O|h(I,B), S) &= \prod_{j=1}^L P(o_j|h(I, b_j), g(S), o_{j-1})\\
-    &= \prod_{j=1}^L P(o_j|h_j, \hat{c}^{\text{text}}_j),
-\end{align}
-where $c_j^{\text{text}}$ is the text-to-vision contextual vector:
-\begin{align}
-    c_j^{\text{text}} &= \sum_{i=1}^N \alpha_{ji} g_i\\
-    \alpha_{ji}(h_j, g_i) &= \text{FFN}([h_j;g_i]),
-\end{align}
-where $\text{FFN}(\cdot)$ is a feed-forward neural net.
 
-\begin{align}
-    \hat{o}_j &= \arg\max_{o}(W_o [h_j^\top; \hat{c}_j^{\text{text}\top}])
+As a result, the second and third term of Eq. (\ref{eq:coref-cond-prob}) is simplified to:
+\begin{align}\label{eq:align-prob}
+     P(R|Y, W) &= P(R|\Phi_v, \Phi_w) \\
+     &\approx P(R|A^*, \Phi_v, \Phi_w)\\
+     &\propto \exp\left(-\sum_{k, m}A^*_{km}(\Phi_w, \Phi_v) \|\phi_{w, k} -\phi_{v, m}\|^2\right), 
 \end{align}
-Intuitively, the text-to-vision contextual vector aligns each words that is relevant to the particular object. 
-
-Next, the multimodal coreference learner takes the scores and embeddings from the multimodal object classifier along with additional features. One important feature is  the overlap between bounding boxes for different entity mentions. However, we do not have hard alignments, so we can instead use an soft average of the IoU scores:
-\begin{align}
-    (d_1(w_i, w_{i'}))_{j, j'} &= \alpha_{ij}\alpha_{i'j'} IoU(b_j, b_{j'}). 
+where $A^*$ is a \textit{soft} dominant alignment typically learned by an attention mechanism as:
+\begin{align}\label{eq:}
+    A^*_{km}(\Phi_w, \Phi_v) &=  \gamma \alpha_{km} + (1-\gamma)\beta_{km}\\
+    \alpha_{km} &= \frac{\exp(\phi_{w,k}^\top\phi_{v,m})}{\sum_{k}\exp(\phi_{w,k}^\top\phi_{v,m})}\\
+    \beta_{km}  &= \frac{\exp(\phi_{w,k}^\top\phi_{v,m})}{\sum_{m}\exp(\phi_{w,k}^\top\phi_{v,m})}.
 \end{align}
-Another feature is the union of bounding boxes, which has shown to be quite useful to incorporate visual context from the image for event extraction \cite{Zhang2015-multimedia-coref}. Using these additional features, the multimodal entity coreference resolver then learns the conditional coreferent probability between words $w_i$ and $w_j$ as:
-\begin{multline}\label{eq:entity_coref_prob}
-    P(y_{ii'}^E=1|w_i, w_{i'}) \\
-   = \sigma(\gamma s(g_i(S), g_{i'}(S)) + (1-\gamma)W^E \mathbf{d}_1(w_i, w_{i'})),
-\end{multline}
-where $\sigma$ is the sigmoid function and $s(\cdot)$ is some score function, such as the biaffine function used in the state-of-the-art coreference resolution systems \cite{Lee2017-neural-coref}. Notice that as in the unimodal coreference resolution problem, the multimodal system learns pairwise coreferent relation ignores global constraints such as transitivity of the coreference. Such issues can be alleviated using a global inference module on top of the pairwise prediction made by the neural network. While it is possible to use probabilities of the same form as \ref{eq:entity_coref_prob} for the multimedia event coreference model, a more theoretically sound approach is taking advantage of the knowledge learned by the multimodal entity coreference model. While exactly how to do this may require extensive experiments, we propose a simple first attempt for joint inference based on the ``degree of coreference'' between the arguments of the two event. To this end, we may require ground truth or noisy annotations about the probability that $w_{i''}$ is of argument role $a$ of $w_i$ given that $w_i$ is an event, $P(a_{i''}|w_i, w_{i''}, S) = P(a_{i''}|f_{i}(S), f_{i''}(S))$, then we can compute the \textit{degree of argument coreference} simply as:
-\begin{multline}\label{eq:degree_of_arg_coref}
-    (d_2(w_i, w_{i'}))_{i_1, i_2} = \sum_{a} P(a|w_{i}, w_{i_1}) P(a|w_{i}, w_{i_2}) \\ 
-    P(y_{i_1i_2}=1|w_{i_1}, w_{i_2}).
-\end{multline}
-The event coreference probability is then:
-\begin{multline}\label{eq:event_coref_prob}
-    P(y_{ii'}^T|Y_E, w_i, w_{i'}) \\
-    = \sigma(\gamma_1 s(g_i(S), g_{i'}(S)) + \gamma_2 W^T \mathbf{d}_1(w_i, w_{i'})+ \\(1-\gamma_1-\gamma_2) V^T \mathbf{d}_2). 
-\end{multline}
 
-The model can be trained using multitask training criteria described in \cite{Li2020-crossmedia-ie} to jointly optimize the triplet loss to enforce consistency of the cross-media space and the cross-entropy loss for the coreference classification.
+To put the unimodal and cross-modal models together, we need to sum over the set of possible coreference labels $Y$. For articles for which ground truth coreferent labels are availabe
+during training, the summation then collapse into a single term:
+\begin{align}\label{eq:sup-coref-cond-prob}
+    P(Y|W) P(R|W, Y, A^*).
+\end{align}
+Otherwise, given a sufficiently well-trained text-only coreference resolution system, we can use its prediction $\hat{Y}=\max_{Y} P(Y|W)$ to perform self-supervised learning using Eq. (\ref{eq:sup-coref-cond-prob}) by replacing $Y$ with $\hat{Y}$.
+
+The multimodal coreference model can be then trained end-to-end using maximum-likelihood criteria as:
+\begin{align}\label{eq:ml-criterion}
+     \max_{\Theta} L_{\text{ML}}(\Theta) &:= \max_{\Theta} L_{\text{ML, u}}(\Theta) + L_{\text{ML, x}}(\Theta)\\
+     L_{\text{ML, u}} &:= \sum_{n}\log P(Y^{(n)}|W^{(n)}, \Theta)\\
+     L_{\text{ML, x}} &:= \sum_{n}\log P(R^{(n)}|W^{(n)}, A^*, \hat{Y}^{(n)}, \Theta).
+\end{align}
+ When the cross-document coreference annotation is available, we can sample negative examples instead using a masked margin softmax loss (\textcolor{red}{CITE}) to maximize:
+\textcolor{red}{TODO MML loss}.
+ 
+ During testing, the model seeks to find the maximum a posteriori (MAP) solution:
+ \begin{align}\label{eq:map-decode}
+     Y^*, A^* = \argmax_{Y, A} P(Y^*, A^*|W, R),
+ \end{align}
+ which can be decoded exactly using a dynamic programming procedure as:
+ \begin{align}\label{eq:map-decode-dp}
+     y_t^*, a_t^* = \max
+ \end{align}
+
 
 % Discuss about the global constraint problem
 
