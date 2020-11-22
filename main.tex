@@ -116,7 +116,7 @@ In our multi--media setting, the event definition is still the same as the defin
 The first term of Eq. (\ref{coref-cond-prob}), $P(Y|W)$ can be learned using a text-only coreference resolution system such as \cite{Lee2017-neural-coref}, which uses the left-linking assumption to decompose the term as follows:
 \begin{align}\label{left-link-coref-prob}
     P(Y|W) &= \prod_{t=1}^S p(y_t|w_{\leq t})\\
-           &= \prod_{t=1}^S \frac{\exp(s(w_{y_t}, w_t))}{\sum_{s\leq t}\exp(s(w_{s}, w_t))},
+           &= \prod_{t=1}^S \frac{\exp(s(w_{y_t}, w_t))}{\sum_{s\leq t}\exp(s_U(w_{s}, w_t))},
 \end{align}
 where $w_{\leq t} := (w_1, \cdots, w_t)$. 
 
@@ -133,7 +133,8 @@ As a result, the second and third term of Eq. (\ref{eq:coref-cond-prob}) is simp
 \begin{align}\label{eq:align-prob}
      P(R|Y, W) &= P(R|\Phi_v, \Phi_w) \\
      &\approx P(R|A^*, \Phi_v, \Phi_w)\\
-     &\propto \exp\left(-\sum_{k, m}A^*_{km}(\Phi_w, \Phi_v) \|\phi_{w, k} -\phi_{v, m}\|^2\right), 
+     &\propto \exp\left(-\sum_{k, m}A^*_{km}s_X(r_m, w_k)\right)\\
+     &= \exp\left(A^*_{km}(\Phi_w, \Phi_v) \|\phi_{w, k} -\phi_{v, m}\|^2\right),
 \end{align}
 where $A^*$ is a \textit{soft} dominant alignment typically learned by an attention mechanism as:
 \begin{align}\label{eq:}
@@ -151,9 +152,9 @@ Otherwise, given a sufficiently well-trained text-only coreference resolution sy
 
 The multimodal coreference model can be then trained end-to-end using maximum-likelihood criteria as:
 \begin{align}\label{eq:ml-criterion}
-     \max_{\Theta} L_{\text{ML}}(\Theta) &:= \max_{\Theta} L_{\text{ML, u}}(\Theta) + L_{\text{ML, x}}(\Theta)\\
-     L_{\text{ML, u}} &:= \sum_{n}\log P(Y^{(n)}|W^{(n)}, \Theta)\\
-     L_{\text{ML, x}} &:= \sum_{n}\log P(R^{(n)}|W^{(n)}, A^*, \hat{Y}^{(n)}, \Theta).
+     \max_{\Theta} L_{\text{ML}}(\Theta) &:= \max_{\Theta} L_{\text{MLU}}(\Theta) + L_{\text{MLX}}(\Theta)\\
+     L_{\text{MLU}} &:= \sum_{n}\log P(Y^{(n)}|W^{(n)}, \Theta)\\
+     L_{\text{MLX}} &:= \sum_{n}\log P(R^{(n)}|W^{(n)}, A^*, \hat{Y}^{(n)}, \Theta).
 \end{align}
  When the cross-document coreference annotation is available, we can sample negative examples instead using a masked margin softmax loss (\textcolor{red}{CITE}) to maximize:
 \textcolor{red}{TODO MML loss}.
@@ -162,10 +163,18 @@ The multimodal coreference model can be then trained end-to-end using maximum-li
  \begin{align}\label{eq:map-decode}
      Y^*, A^* = \argmax_{Y, A} P(Y^*, A^*|W, R),
  \end{align}
- which can be decoded exactly using a dynamic programming procedure as:
- \begin{align}\label{eq:map-decode-dp}
-     y_t^*, a_t^* = \max
+ which can be decoded exactly using a dynamic programming procedure. Define the probability $\delta[s, t, m] := \max_{Y_{\leq s}, A_{\leq s}} P(Y_{< s}, y_s=t, a_1=1,\cdots, a_t=m, \cdots, a_s, R|W)$ and $r_{a_{y_s}} := \{r_m: A_{y_sm} = 1\}$ as:
+\begin{align}\label{eq:map-decode-dp}
+    \delta[s, t, m] &= \max_{a_s, y_s}  \delta[y_s] P(y_s|W) P(R|w_s, w_{y_s}, a_s, a_{y_s})\\
+    		        &\propto \max_{a_s, y_s} \delta[y_s] \exp(s_U(w^s, w^{y_s}) + s_X(r_{a_{y_s}}, w^s))\\
+    \delta[s] &:=  \max_{t, m}\delta[s, t, m].
  \end{align}
+
+ This procedure requires a runtime and memory of $O(S^3 M)$, which is too expensive when the article is long. Therefore, in practice we use instead the following greedy procedure:
+ \begin{multline}\label{eq:greedy-decode}
+     y^*_t, a^*_t \approx  \argmax_{a_t, y_t}  s_U(w^t, w^{y_t}) + \\
+     \sum_{m}A_{y_t m}(\Phi_{v, \leq m}, \Phi_{w, \leq t}) s_{X, \leq t}(r_m, w^t) 
+ \end{multline}
 
 
 % Discuss about the global constraint problem
