@@ -1,0 +1,208 @@
+%
+% File acl2020.tex
+%
+%% Based on the style files for ACL 2020, which were
+%% Based on the style files for ACL 2018, NAACL 2018/19, which were
+%% Based on the style files for ACL-2015, with some improvements
+%%  taken from the NAACL-2016 style
+%% Based on the style files for ACL-2014, which were, in turn,
+%% based on ACL-2013, ACL-2012, ACL-2011, ACL-2010, ACL-IJCNLP-2009,
+%% EACL-2009, IJCNLP-2008...
+%% Based on the style files for EACL 2006 by 
+%%e.agirre@ehu.es or Sergi.Balari@uab.es
+%% and that of ACL 08 by Joakim Nivre and Noah Smith
+
+\documentclass[11pt,a4paper]{article}
+\usepackage[hyperref]{acl2020}
+\usepackage{times}
+\usepackage{latexsym}
+\usepackage{amsmath, amsfonts}
+\usepackage{xcolor}
+\usepackage{multirow, multicol}
+\renewcommand{\UrlFont}{\ttfamily\small}
+\usepackage{comment}
+
+% This is not strictly necessary, and may be commented out,
+% but it will improve the layout of the manuscript,
+% and will typically save some space.
+\usepackage{microtype}
+
+\aclfinalcopy % Uncomment this line for the final submission
+%\def\aclpaperid{***} %  Enter the acl Paper ID here
+
+%\setlength\titlebox{5cm}
+% You can expand the titlebox if you need extra space
+% to show all the authors. Please do not make the titlebox
+% smaller than 5cm (the original size); we will check this
+% in the camera-ready version and ask you to change it back.
+
+\newcommand\BibTeX{B\textsc{ib}\TeX}
+\newcommand{\bA}{\mathbf{A}}
+\newcommand{\bc}{\mathbf{c}}
+\newcommand{\bl}{\mathbf{l}}
+\newcommand{\bm}{\mathbf{m}}
+\newcommand{\bo}{\mathbf{o}}
+\newcommand{\br}{\mathbf{r}}
+\newcommand{\bs}{\mathbf{s}}
+\newcommand{\bw}{\mathbf{w}}
+\newcommand{\bx}{\mathbf{x}}
+\newcommand{\bz}{\mathbf{z}}
+\newcommand{\cD}{\mathcal{D}}
+\newcommand{\cN}{\mathcal{N}}
+\newcommand{\reals}{\mathbb{R}}
+
+\title{Multimedia Event Coreference}
+
+\author{Liming Wang\\
+\texttt{lwang114@illinois.edu}\\\And
+Shengyu Feng\\
+\texttt{shengyu8@illinois.edu}\\
+}
+
+
+\date{September 2020}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We propose a system capable of event coreference using images as side information. Our system consists of an image encoder, an language encoder, an multimedia graph aligner and two coreference relation classifiers for entity and event respectively. In the course of the project, we plan to search for existing multimedia coreference dataset and possibly collect additional data for the task and compare our multimedia systems with existing text-based systems on the datasets.  
+% Consider a set of documents $\cD = \{\bx^{(d)}\}_{d=1}^D$, where the $d^{\text{th}}$ document consists of sentences with word representation $\bx^{(d)} := x_1^{(d)}, \cdots, x_N^{(d)}$. Suppose for each document $\bx$, a set of event/entity mentions with representation $e_1, \cdots, e_M, M < N$ is provided, then the task of coreference resolution is to predict a set of cluster labels $c_1, \cdots, c_M \in \{1, \cdots, K\}^M$, where $K < M$ is the number of events/entities in the document. Entity/event pairs $e_i$ and $e_j$ are defined to be \textit{coreferent} if $c_i = c_j$. We adopt the joint event-entity coreference framework \cite{Lee2012-joint-entity-event-coref} to resolve entity and event coreference jointly. 
+\end{abstract}
+
+\section{Introduction}
+Event coreference is the task of identifying the event mentions expressed in language that refer to the same event in the real world. It can be applied to various downstream tasks, including question answering, text summarization and headline generation. Further, in modern journalism, some key information about an event will usually be presented as an image rather than in language, which is hard to be processed by text--only event coreference methods. This makes the multimodal event coreference extremely useful in the modern information extraction (IE) technology. Meanwhile, some works have achieved excellent performance on some other multimodal IE problems, like event extraction and entity coreference \cite{Li2020-crossmedia-ie}. We are motivated to fill the blank in multimodal event extraction and we propose a multimodal event coreference system that can augment the text--only event coreference systems with additional visual information.
+
+% 2-3 sentences
+The main objective of this project is to develop a system that can exploit multimedia data to perform better event coreference with a focus on images. To achieve this goal, we will study the following two related research questions: First, what aspects of image benefit event-level coreference resolution and joint event-entity coreference resolution the most? Further, what is the relative importance of visual features in different types of event coreference? 
+
+\section{Related Works}
+Conventional event coreference resolution systems tend to operate only on texts separate from other types of NLP tasks such as event extraction and entity coreference, without taking advantage of the knowledge hidden in related tasks as well as additional sensory modality. In recent years researchers have found the importance of using entity mentions as hints to identify event coreference related to the entities \cite{Lee2012-joint-entity-event-coref, Lu2016-joint-event-coref, Barhom2019-joint-coref}. To better model the interdependency of events and entities, \cite{Lee2012-joint-entity-event-coref} proposed to jointly resolve event and entity resolution using a linguistic-informed agglomerative clustering algorithm based on linear regression. Others have proposed to transfer knowledge learned from other task to event coreference, such as entity typing and linking \cite{durrett-klein-2011-empirical}, event trigger identification \cite{Araki2015}, argument compatibility \cite{Huang2019-argument-compatibility} and topic modeling \cite{Choubey2018}.  
+
+To our knowledge, \cite{Zhang2015-multimedia-coref} is the first to propose using multimedia features for event coreference, in which they proposed using proximity measures between bounding boxes corresponding to different entities as hints for coreference. Since then, researchers have experimented with multimedia data to perform tasks in information extraction. \cite{Li2020-crossmedia-ie} built an end-to-end multimedia event extraction system and apply it to the task of cross-media event coreference and is able outperform the text-only entity type matching baseline. On the other hand, researchers in the computer vision community has been studying analogous problem of IE to learn structural semantic information from images, such as scene-graph parsing and situation recognition \cite{Zellers2018-neural-motifs}.
+
+\section{Problem Formulation}
+\subsection{Definition of multimedia event}
+For a text--only event mention $e$, it's defined to have a type $y_e$ and a text trigger word $w$. It can be represented as 
+\begin{align*}
+    e = (y_e, w)
+\end{align*}
+And two event mentions are defined as the coreference if they refer to the same event. 
+\begin{align*}
+    Coref(e_i,e_j)= \begin{cases}
+    1, & \text{if $e_i$ and $e_j$ are the same}.\\
+    0, & \text{otherwise}.
+    \end{cases}
+\end{align*}    
+And a model has to make the predictions based on the text information $S$.
+\begin{align*}
+    P(Coref(e_i,e_j)|S)
+\end{align*}
+
+In our multi--media setting, the event definition is still the same as the definition of a text event. But the coreference label is based not only on the text, but also on the images $I$, bounding boxes $B$ and objects $O$. 
+
+\begin{align*}
+    P(Coref(e_i,e_j)|S,I,B,O)
+\end{align*}
+
+\section{A generative model for multimedia event coreference}
+ Suppose a writer composes an article consisting of a sequence of word ``chunks'' $W = (w^1, \cdots, w^S)$, where $w^s = (w^s_1, \cdots, w^s_{L_s})$, which can be the representations of entity mentions with local context words in the case of entity coreference and event mentions with context words in the case of event coreference. Then a visual editor pairs the article with a sequence of image region-of-interests (ROIs) $R = (r_1, \cdots, r_M)$ which are relevant to the content of the article. To understand the article, a key step of a reader is to understand the coreference relations between the chunks and images. That is, the reader needs to find the sets of word chunks that describe the same event/entity, as encoded by the vector $Y = (y_1,\cdots,y_S)$, where $y_s = t$ means chunk $s$ is coreferent with chunk $t$, a task called \textit{unimodal coreference resolution}, as well as the sets of images that describe the same event/entity, as encoded by the matrix $\bA \in \{0, 1\}^{S \times M}$, where $A_{tm}=1$ means the $t$-th chunk is associated with chunk $m$-th ROI, a task called \textit{crossmodal coreference resolution}.  
+ 
+ Further, we adopt the left-linking assumption (\textcolor{red}{CITE}), which asserts that the visual editor detects the coreferent relation of the writer from the start of the article to the end, or mathematically, $y_s \leq t$. The conditional likelihood of the ROIs given the words is then:
+ \begin{align}\label{coref-cond-prob}
+     P(R|W) = \sum_{A, Y} P(Y|W) P(A|W, Y) P(R|A, Y, W). 
+ \end{align}
+The first term of Eq. (\ref{coref-cond-prob}), $P(Y|W)$ can be learned using a text-only coreference resolution system such as \cite{Lee2017-neural-coref}, which uses the left-linking assumption to decompose the term as follows:
+\begin{align}\label{left-link-coref-prob}
+    P(Y|W) &= \prod_{t=1}^S p(y_t|w_{\leq t})\\
+           &= \prod_{t=1}^S \frac{\exp(s(w_{y_t}, w_t))}{\sum_{s\leq t}\exp(s(w_{s}, w_t))},
+\end{align}
+where $w_{\leq t} := (w_1, \cdots, w_t)$. 
+
+The second and third terms of Eq. (\ref{eq:coref-cond-prob}) can be learned using a cross-modal alignment model as follows. First, given the coreferent labels $Y$, the model aggregates the representations of chunks of the same event/entity:
+\begin{align}
+    \phi_{w, k} = \frac{\sum_{t:y_t=k} w_{t}}{n_k}, 
+\end{align}
+where $n_k = |\{t:y_t=k\}|$.
+
+\section{System Architecture and Approach}
+In the problem of multimodal event coreference, a learner is presented with a set of sentences of the form $S = (w_1, \cdots, w_N)$ and images $I$ with bounding boxes $(B, O) = (b_i, o_i), i=1, \cdots, L$, where $o_j$ is the object class of the bounding box, and the goal of the learner is to identify whether two event mentions $w_i$ and $w_j$ are describing the same event, as described by a binary matrix $Y \in \{0, 1\}^{N \times N} = (y_{ij}), i,j=1,\cdots,N$ so that $y_{ij}=1$ if $w_i$ and $w_j$ are coreferent event mentions and 0 otherwise. If $w_i$ or $w_j$ is not an event, by convention we also have $y_{ij}=0$. Further, we assume $Y$ is block-diagonal up to permutation and can be partitioned into two submatrix $Y_E$ and $Y_T$, where $Y_E$ is the \textit{entity coreference matrix} and $Y_T$ is the \textit{event trigger coreference matrix}. In our basic setting, we assume the entity types, object class and event trigger and argument types to be available in the form of \textit{soft labels}, which are soft conditional probability distribution over classes, though in principle we only requires coreference, object and bounding box labels.
+
+A multimodal coreference resolution system then tries to learn the following conditional probability distribution:
+\begin{multline}\label{eq:likelihood}
+    P(B, O, Y|S, I)\\ 
+    = P(B|I) P(O|B, I, S) P(Y|B, O, I, S)\\
+    = P(B|I) P(O|B, I, S) P(Y_E|B, O, I, S)\\ 
+    P(Y_T|Y_E, B, O, I, S).
+\end{multline}
+Here, $P(B|I)$ is assumed to be learned by a pretrained object detection and classification system and fixed during training. $P(O|B, I, S)$ is the multimodal object class distribution which is to be learnt using the unimodal object class distribution learned by the object detection system, $P(O|B, I)$ and additional information from text. The reason why we decide to learn a multimodal object class is that such labels may provide additional entity information that is beneficial for event coreference, as shown in research of joint entity-event coreference resolution \cite{Lee2012-joint-entity-event-coref}. Further, $P(Y|B, O, I, S)$ is the multimodal coreference resolution system. It is crucial for the multimodal coreference resolution to accept object category information from the object classifiers since having the same object types is a necessary condition for entity coreference; further, having two consistent sets of argument roles and entity types is a necessary condition for event coreference, therefore the event coreference system is conditioned on the coreference and entity type labels of the entity coreference system.    
+
+% Discuss about asynchronous nature of text and image
+Next we discuss the learning mechanisms of different components. To learn the multimodal object classifier, we follow previous works \cite{Zellers2018-neural-motifs} to first contextualize the unimodal class distribution learned by the object detection system based on single bounding box:
+\begin{align}\label{eq:contextualized_object_prob}
+    h_j := h(I, b_j) = \text{BiLSTM}([f_j;W_1 l_j], h_{j-1}),
+\end{align}
+where $l_j := P(o_j|f(I))$ learned by the object detection system and $f_j$ is the visual feature of the bounding box. Similarly, we contextualize the word embeddings of the sentence using a graph convolutional neural network (GCN):
+\begin{align}
+    g_i := g(s, G^{\text{AMR}}) = \text{GCN}(\bw_i, (g_{i'})_{i'\in N^{\text{AMR}}(i)}).
+\end{align}
+As a result, the multimodal object probability becomes:
+\begin{align}
+    P(O|h(I,B), S) &= \prod_{j=1}^L P(o_j|h(I, b_j), g(S), o_{j-1})\\
+    &= \prod_{j=1}^L P(o_j|h_j, \hat{c}^{\text{text}}_j),
+\end{align}
+where $c_j^{\text{text}}$ is the text-to-vision contextual vector:
+\begin{align}
+    c_j^{\text{text}} &= \sum_{i=1}^N \alpha_{ji} g_i\\
+    \alpha_{ji}(h_j, g_i) &= \text{FFN}([h_j;g_i]),
+\end{align}
+where $\text{FFN}(\cdot)$ is a feed-forward neural net.
+
+\begin{align}
+    \hat{o}_j &= \arg\max_{o}(W_o [h_j^\top; \hat{c}_j^{\text{text}\top}])
+\end{align}
+Intuitively, the text-to-vision contextual vector aligns each words that is relevant to the particular object. 
+
+Next, the multimodal coreference learner takes the scores and embeddings from the multimodal object classifier along with additional features. One important feature is  the overlap between bounding boxes for different entity mentions. However, we do not have hard alignments, so we can instead use an soft average of the IoU scores:
+\begin{align}
+    (d_1(w_i, w_{i'}))_{j, j'} &= \alpha_{ij}\alpha_{i'j'} IoU(b_j, b_{j'}). 
+\end{align}
+Another feature is the union of bounding boxes, which has shown to be quite useful to incorporate visual context from the image for event extraction \cite{Zhang2015-multimedia-coref}. Using these additional features, the multimodal entity coreference resolver then learns the conditional coreferent probability between words $w_i$ and $w_j$ as:
+\begin{multline}\label{eq:entity_coref_prob}
+    P(y_{ii'}^E=1|w_i, w_{i'}) \\
+   = \sigma(\gamma s(g_i(S), g_{i'}(S)) + (1-\gamma)W^E \mathbf{d}_1(w_i, w_{i'})),
+\end{multline}
+where $\sigma$ is the sigmoid function and $s(\cdot)$ is some score function, such as the biaffine function used in the state-of-the-art coreference resolution systems \cite{Lee2017-neural-coref}. Notice that as in the unimodal coreference resolution problem, the multimodal system learns pairwise coreferent relation ignores global constraints such as transitivity of the coreference. Such issues can be alleviated using a global inference module on top of the pairwise prediction made by the neural network. While it is possible to use probabilities of the same form as \ref{eq:entity_coref_prob} for the multimedia event coreference model, a more theoretically sound approach is taking advantage of the knowledge learned by the multimodal entity coreference model. While exactly how to do this may require extensive experiments, we propose a simple first attempt for joint inference based on the ``degree of coreference'' between the arguments of the two event. To this end, we may require ground truth or noisy annotations about the probability that $w_{i''}$ is of argument role $a$ of $w_i$ given that $w_i$ is an event, $P(a_{i''}|w_i, w_{i''}, S) = P(a_{i''}|f_{i}(S), f_{i''}(S))$, then we can compute the \textit{degree of argument coreference} simply as:
+\begin{multline}\label{eq:degree_of_arg_coref}
+    (d_2(w_i, w_{i'}))_{i_1, i_2} = \sum_{a} P(a|w_{i}, w_{i_1}) P(a|w_{i}, w_{i_2}) \\ 
+    P(y_{i_1i_2}=1|w_{i_1}, w_{i_2}).
+\end{multline}
+The event coreference probability is then:
+\begin{multline}\label{eq:event_coref_prob}
+    P(y_{ii'}^T|Y_E, w_i, w_{i'}) \\
+    = \sigma(\gamma_1 s(g_i(S), g_{i'}(S)) + \gamma_2 W^T \mathbf{d}_1(w_i, w_{i'})+ \\(1-\gamma_1-\gamma_2) V^T \mathbf{d}_2). 
+\end{multline}
+
+The model can be trained using multitask training criteria described in \cite{Li2020-crossmedia-ie} to jointly optimize the triplet loss to enforce consistency of the cross-media space and the cross-entropy loss for the coreference classification.
+
+% Discuss about the global constraint problem
+
+% Discuss the possibility when entity/event types are available
+%
+%The multimodal coreference resolution shares many several challenges with a typical text-based event coreference resolution problem. One important challenge is that there may be many objects/entities that are only mentioned once in the texts and images, leading to singleton clusters that are very hard to identify. To solve this problem, we may need to train a classifier to detect such singleton entities. A related problem is that as the number of cluster grows larger, the probability that two entities are coreferent decreases, which can lead to label imbalance if we simply formulate the problem as binary classification problem. But we intend to focus the multimodal part of the problem and assume that a unimodal coreference resolution system $f_{\text{coref}}$ capable of handling this issues is available, which takes in a sentence of word embeddings $\bw_1, \cdots, \bw_N$ and outputs either the binary coreferent labels $\mathbf{b}$ or multi-class labels $\mathbf{z}$. We will focus on the binary classifier approach.
+
+%Another important challenge of the problem is that the visual modality and the textual modality are asynchronous, that is, the number of bounding boxes $L$ can be very different from the number of words $N$ and it is not clear which part of the image is relevant to which part of the sentence. Therefore, we assume that there exists some latent alignment between the bounding boxes and the words such that if a word and a bounding box is aligned, they share similar meaning and thus tend to co-occur more often. With this assumption, the model may be able to learn such semantic correlation by mapping the textual and visual features to a joint embedding space, as done in \textcolor{red}{CITE Needed}. We thus assume that we have a good multimodal embedder $f_{\text{multimedia}}$ available, which takes inputs as a pair of images and sentences and outputs a sequence of multimodal embeddings $(\bw_1^C, \cdots, \bw_N^C)$ and $(\bo_1^C, \cdots, \bo_L^C)$.
+% What kind of information from images can be used? Objects, actions, attributes
+
+% The problem then boils down to find out ways by which $f_{\text{multimedia}}$ can provide additional context information to the coreference resolution system $f_{\text{coref}}$. An intuitive approach is to use the visual embeddings of the union of regions aligned to an event to form an augmented vector $[\bw_i; \bo_{a_i}]$. Then we can tell if two events are coreferent by computing the distance between two augmented vectors, since if two regions look similar or locate nearby, they are more likely to refer to the same event. However, this requires finding the hard alignment between the visual regions and words which may be noisy. 
+% A slightly more general approach will be to compare instead the distance between multimodal embeddings of two events, or feed them into a fine-tuned $f_{\text{coref}}$:
+%\begin{align}\label{eq:baseline}
+%    \hat{b}_{ij} &= f_{\text{coref}}(\bw_i^C, \bw_j^C).
+%\end{align}
+
+\bibliography{acl2020, anthology}
+\bibliographystyle{acl_natbib}
+
+\appendix
+\end{document}
+

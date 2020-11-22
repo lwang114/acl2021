@@ -1,0 +1,90 @@
+%
+% File acl2020.tex
+%
+%% Based on the style files for ACL 2020, which were
+%% Based on the style files for ACL 2018, NAACL 2018/19, which were
+%% Based on the style files for ACL-2015, with some improvements
+%%  taken from the NAACL-2016 style
+%% Based on the style files for ACL-2014, which were, in turn,
+%% based on ACL-2013, ACL-2012, ACL-2011, ACL-2010, ACL-IJCNLP-2009,
+%% EACL-2009, IJCNLP-2008...
+%% Based on the style files for EACL 2006 by 
+%%e.agirre@ehu.es or Sergi.Balari@uab.es
+%% and that of ACL 08 by Joakim Nivre and Noah Smith
+
+\documentclass[11pt,a4paper]{article}
+\usepackage[hyperref]{acl2020}
+\usepackage{times}
+\usepackage{latexsym}
+\usepackage{amsmath, amsfonts}
+\usepackage{xcolor}
+\usepackage{multirow, multicol}
+\renewcommand{\UrlFont}{\ttfamily\small}
+\usepackage{comment}
+
+% This is not strictly necessary, and may be commented out,
+% but it will improve the layout of the manuscript,
+% and will typically save some space.
+\usepackage{microtype}
+
+\aclfinalcopy % Uncomment this line for the final submission
+%\def\aclpaperid{***} %  Enter the acl Paper ID here
+
+%\setlength\titlebox{5cm}
+% You can expand the titlebox if you need extra space
+% to show all the authors. Please do not make the titlebox
+% smaller than 5cm (the original size); we will check this
+% in the camera-ready version and ask you to change it back.
+
+\newcommand\BibTeX{B\textsc{ib}\TeX}
+\newcommand{\bc}{\mathbf{c}}
+\newcommand{\bl}{\mathbf{l}}
+\newcommand{\bm}{\mathbf{m}}
+\newcommand{\bo}{\mathbf{o}}
+\newcommand{\br}{\mathbf{r}}
+\newcommand{\bs}{\mathbf{s}}
+\newcommand{\bw}{\mathbf{w}}
+\newcommand{\bx}{\mathbf{x}}
+\newcommand{\bz}{\mathbf{z}}
+\newcommand{\cD}{\mathcal{D}}
+\newcommand{\cN}{\mathcal{N}}
+\newcommand{\reals}{\mathbb{R}}
+
+\title{Annotation Guidelines for Video Multimedia Event Extraction and Coreference}
+
+\author{Liming Wang\\
+\texttt{lwang114@illinois.edu}\\\And
+Shengyu Feng\\
+\texttt{shengyu8@illinois.edu}\\
+}
+
+
+\date{September 2020}
+
+\begin{document}
+\maketitle
+
+\section{Definition of Multimedia Event}
+To develop better automatic information extraction system, it is important to understand the nature of events since it can have a significant influence on the  annotation scheme, the evaluation criteria and ultimately the performance of the IE system in real-world scenario. The most widely used definitions of event rely on the notion of ``state''. A state can be loosely defined as a quantity of a system that is relatively stable over a long period of time, such as chemical and physical properties of an object or personality of a person. An event can then be defined as ``a change of state''. For example, a movement is an event since it involves the change of position of the moving object. Based on the notion of state, several papers in linguistics (\textcolor{red}{CITE}) have proposed frameworks for categorizing events. (\textcolor{red}{CITE}) proposed the four-way classification of events as ``state'', ``activity'', ``accomplishment'' and ``achievement''; (\textcolor{red}{CITE}) proposed the distinction of ``state'', ``action'' and processes based on whether and how long the state has changed during the course of the event; (\textcolor{red}{CITE}) proposed a more fine-grained guideline for distinguishing events by taking into account the interaction between states and the semantic constraints by which the change of states obey (TODO example?). 
+% TODO 
+
+Based on the definition of event, an \textit{event mention} is then defined as a consecutive chunk of texts that describe the same event. Two event mentions are \textit{coreferent} if they refer to the same event. Due to the ambiguity in the definition of mention, any annotation scheme will need some criteria to distinguish between a single event mention and multiple consecutive event mentions. For example, the automatic content extraction (ACE) \textcolor{red}{CITE} annotation scheme assumes that an event mention occurs within a single sentence and any mentions in two different sentences should be considered separate mentions. However, the same event mention often spans beyond single sentences. For example, the death event caused by COVID-19 is often not mentioned in the same sentence as the virus, and therefore the criterion will miss the ``instrument'' argument  of the event. Another criterion used \cite{Huang2019-argument-compatibility} is to define an event to be the trigger words and the context words within a window of $n$ words. Still, how to set $n$ properly to include all the event arguments for each event is unclear. 
+
+Another central issue with the text-only event definition is to handle hierarchical events. (\textcolor{red}{CITE}) proposed an event-event relation annotation scheme based on ``partial coreference''. 
+
+With the help of additional information sources such as video, we propose several possible new definitions of event and event mentions based on multimedia data, which addresses the problems of the text-only definition. Further, our new definitions can be naturally extended to define event-event relations with minimal additional annotations. 
+Previous definition on visual events are defined using images \cite{Li2020-crossmedia-ie} and assume that there is only one visual event per image frame. However, such a definition is unable to handle co-occurrent, overlapping and hierarchical events. Instead, we modify their assumption to so that there is only one multimedia event per \textit{visual segment}. Define a visual segment to be a sextuple $\bs = (B, T) = ((x_{\text{min}}, y_{\text{min}}, x_{\text{max}}, y_{\text{max}}), (t_{\text{start}}, t_{\text(end)}))$, we assume there is a one-to-one mapping between each (visual) event and each visual segment, and a \textit{multimedia event mention} is then defined as the chunk of consecutive words that describe the same visual segment. As a special case, we may restrict the bounding box $(x_{min}, y_{min}, x_{max}, y_{max})$ to be the entire image. For abstract events that do not associate with any visual segment, we can associate with a blank image. Therefore, by using the alignment between the video and text to define event mentions, we can avoid restricting event to be within a sentence with leading to ambiguity of event mentions.
+
+A key difference between video and text is that video organizes events in temporal order. For example, the event ``demonstrate'' may contain a few ``attack'' events here and there in the video as a sequence of skirmishes occurring during a demonstration. Should the every individual attack event be treated as a separate event or should the whole attacking scene be treated as a single event? More generally, the ontology used for text breaks down for visual events as events of different types are often intertwined in the video. Our definition of multimedia event mention bypasses such difficulty by considering visual events of all granularity and associate the text mention with event of the optimal level of granularity specified by the span of the visual segment. Further, an event with visual segment $\bs_1$ is a sub-event of another event with visual segment $\bs_2$ if the 3-d box represented by $\bs_1$ is subsumed in $\bs_2$. To fully understand event-event relation, we may choose to annotate additional labels between visual segments, for example, by making a four-way distinctions between causal events, ritualized events, inherited events and irrelevant events (coincident). Another advantage of such a definition is that it allows relatively cheap annotation. 
+
+One limitation of ``one event per visual segment'' assumption is that it can only handle events that occur in consecutive frames of the video and cannot handle disjoint event without leading to computational intractability. Nevertheless, such a problem will only occur for videos that are post-edited. In this case, we can treat the videos like text and annotate event coreference labels between visual segments and define two text mentions to be coreferent as long as they refer to coreferent visual segments. 
+
+Another limitation of the assumption has to do with the usefulness of the representation. A learner capable of recognizing bounding boxes as an event type does not necessarily understand the semantic of the events and may even confuse them with entities. Further, events such as ``attack'' may involve from two individuals to a two large mobs of individuals. With bounding box features, the learner may simply treat the two events as unrelated, even though they share similar change of states we human can understand. Therefore, we may instead represent each event as a combination of the trigger representation and the role representation, which may be the bounding boxes of the entities involved in the event combined with the union of the bounding boxes.
+
+
+\bibliography{acl2020, anthology}
+\bibliographystyle{acl_natbib}
+
+\appendix
+\end{document}
+
